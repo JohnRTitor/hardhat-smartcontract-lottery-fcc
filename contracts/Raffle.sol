@@ -23,6 +23,12 @@ contract Raffle {
     uint256 private immutable i_entraceFee;
     address payable[] private s_players;
 
+    /* Events */
+    // events can't be accessed by smart contracts
+    // events use log data structure to store log
+    // this is way cheaper than storing in a storage variable
+    event RaffleEnter(address indexed player);
+
     /**
      * @notice Constructor sets the entrance fee for the raffle
      * @param entranceFee The amount of ETH required to enter the raffle
@@ -41,6 +47,7 @@ contract Raffle {
             revert Raffle__NotEnoughETHEntered();
         }
         s_players.push(payable(msg.sender));
+        emit RaffleEnter(msg.sender);
     }
 
     /**
