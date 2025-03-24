@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
 /**
  * @title Raffle Contract
  * @author Masum Reza, originally by Patrick Collins in FCC course
@@ -7,6 +5,11 @@ pragma solidity ^0.8.7;
  * @dev This contract uses Chainlink Oracle for verifiably random number generation
  * and Chainlink Keepers for automated execution
  */
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
+
+import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 
 /**
  * @notice Error thrown when a user tries to enter the raffle with insufficient ETH
@@ -18,7 +21,7 @@ error Raffle__NotEnoughETHEntered();
  * @notice Implements a decentralized lottery where users can enter by paying an entrance fee
  * and a winner is selected randomly at specified intervals
  */
-contract Raffle {
+contract Raffle is VRFConsumerBaseV2 {
     /* State variables */
     uint256 private immutable i_entraceFee;
     address payable[] private s_players;
@@ -33,7 +36,10 @@ contract Raffle {
      * @notice Constructor sets the entrance fee for the raffle
      * @param entranceFee The amount of ETH required to enter the raffle
      */
-    constructor(uint256 entranceFee) {
+    constructor(
+        address vrfCoordinator,
+        uint256 entranceFee
+    ) VRFConsumerBaseV2(vrfCoordinator) {
         i_entraceFee = entranceFee;
     }
 
@@ -55,12 +61,18 @@ contract Raffle {
      * @dev This function is not implemented yet
      * Will use Chainlink VRF for verifiable randomness
      */
-    /*
-    function pickRandomWinner() {
-
+    function requestRandomWinner() external {
+        // Request the random number
+        // Once we get it, do something with it
+        // 2 transaction process
     }
-    */
 
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal override {}
+
+    /* View / Pure functions*/
     /**
      * @notice Returns the entrance fee for the raffle
      * @return uint256 The entrance fee in wei
