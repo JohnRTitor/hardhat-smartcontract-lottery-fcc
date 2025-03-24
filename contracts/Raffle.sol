@@ -10,6 +10,7 @@
 pragma solidity ^0.8.7;
 
 import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 
 /**
  * @notice Error thrown when a user tries to enter the raffle with insufficient ETH
@@ -25,22 +26,58 @@ contract Raffle is VRFConsumerBaseV2 {
     /* State variables */
     uint256 private immutable i_entraceFee;
     address payable[] private s_players;
+    /**
+     * @dev Interface for interacting with the Chainlink VRF Coordinator
+     */
+    VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
+    /**
+     * @dev Determines the maximum gas price willing to be paid for a Chainlink VRF request
+     */
+    bytes32 private immutable i_gasLane;
+    /**
+     * @dev This ID links the contract to a funded subscription in Chainlink VRF
+     * to pay for random number generation requests
+     */
+    uint64 private immutable i_subscriptionId;
+    /**
+     * @notice The gas limit for the callback function when fulfilling the VRF request
+     * @dev Determines the maximum gas allowed for `fulfillRandomWords` to execute
+     * and process the random number
+     */
+    uint32 private immutable i_callbackGasLimit;
+
+    /**
+     * @dev number of confirmations required for the request to be considered valid
+     */
+    uint16 private constant REQUEST_CONFIRMATIONS = 3;
+    /**
+     * @dev Determines how many random numbers will be returned in a single VRF response
+     */
+    uint32 private constant NUM_WORDS = 1;
 
     /* Events */
     // events can't be accessed by smart contracts
     // events use log data structure to store log
     // this is way cheaper than storing in a storage variable
     event RaffleEnter(address indexed player);
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     /**
      * @notice Constructor sets the entrance fee for the raffle
      * @param entranceFee The amount of ETH required to enter the raffle
      */
     constructor(
-        address vrfCoordinator,
-        uint256 entranceFee
-    ) VRFConsumerBaseV2(vrfCoordinator) {
+        address vrfCoordinatorAddress,
+        uint256 entranceFee,
+        bytes32 gasLane,
+        uint64 subscriptionId,
+        uint32 callbackGasLimit
+    ) VRFConsumerBaseV2(vrfCoordinatorAddress) {
+        i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinatorAddress);
         i_entraceFee = entranceFee;
+        i_gasLane = gasLane;
+        i_subscriptionId = subscriptionId;
+        i_callbackGasLimit = callbackGasLimit;
     }
 
     /**
@@ -65,6 +102,16 @@ contract Raffle is VRFConsumerBaseV2 {
         // Request the random number
         // Once we get it, do something with it
         // 2 transaction process
+
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+            i_gasLane,
+            i_subscriptionId,
+            REQUEST_CONFIRMATIONS,
+            i_callbackGasLimit,
+            NUM_WORDS
+        );
+
+        emit RequestedRaffleWinner(requestId);
     }
 
     function fulfillRandomWords(
