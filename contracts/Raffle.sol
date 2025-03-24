@@ -16,6 +16,7 @@ import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.s
  * @notice Error thrown when a user tries to enter the raffle with insufficient ETH
  */
 error Raffle__NotEnoughETHEntered();
+error Raffle__TransferFailed();
 
 /**
  * @title Raffle Contract
@@ -64,6 +65,7 @@ contract Raffle is VRFConsumerBaseV2 {
     // this is way cheaper than storing in a storage variable
     event RaffleEnter(address indexed player);
     event RequestedRaffleWinner(uint256 indexed requestId);
+    event WinnerPicked(address indexed winner);
 
     /**
      * @notice Constructor sets the entrance fee for the raffle
@@ -117,8 +119,12 @@ contract Raffle is VRFConsumerBaseV2 {
         emit RequestedRaffleWinner(requestId);
     }
 
+    /**
+     * @dev Uses the random number to select a winner and transfers the contract balance to them
+     * @param randomWords The array of random numbers provided by Chainlink VRF
+     */
     function fulfillRandomWords(
-        uint256 requestId,
+        uint256 /* requestId */,
         uint256[] memory randomWords
     ) internal override {
         // we are using modulo as an hash function to select a winner
@@ -127,6 +133,13 @@ contract Raffle is VRFConsumerBaseV2 {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable recentWinner = s_players[indexOfWinner];
         s_recentWinner = recentWinner;
+
+        (bool success, ) = recentWinner.call{value: address(this).balance}("");
+        if (!success) {
+            revert Raffle__TransferFailed();
+        }
+
+        emit WinnerPicked(recentWinner);
     }
 
     /* View / Pure functions*/
