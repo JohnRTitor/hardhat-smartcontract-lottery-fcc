@@ -55,6 +55,9 @@ contract Raffle is VRFConsumerBaseV2 {
      */
     uint32 private constant NUM_WORDS = 1;
 
+    // Lottery variables
+    address private s_recentWinner;
+
     /* Events */
     // events can't be accessed by smart contracts
     // events use log data structure to store log
@@ -117,7 +120,14 @@ contract Raffle is VRFConsumerBaseV2 {
     function fulfillRandomWords(
         uint256 requestId,
         uint256[] memory randomWords
-    ) internal override {}
+    ) internal override {
+        // we are using modulo as an hash function to select a winner
+        // we divide the random number by the length of the players array
+        // to get a random index
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
+        address payable recentWinner = s_players[indexOfWinner];
+        s_recentWinner = recentWinner;
+    }
 
     /* View / Pure functions*/
     /**
@@ -135,5 +145,12 @@ contract Raffle is VRFConsumerBaseV2 {
      */
     function getPlayer(uint256 index) public view returns (address) {
         return s_players[index];
+    }
+
+    /**
+     * @return address The address of the most recent raffle winner
+     */
+    function getRecentWinner() public view returns (address) {
+        return s_recentWinner;
     }
 }
