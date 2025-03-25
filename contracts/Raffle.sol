@@ -210,7 +210,22 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     }
 
     /// @return uint256 The number of random words requested from Chainlink VRF
-    function getNumWords() public view returns (uint256) {
+    function getNumWords() public pure returns (uint256) {
         return NUM_WORDS;
+    }
+
+    /// @return uint256 The number of players in the raffle
+    function getNumberOfPlayers() public view returns (uint256) {
+        return s_players.length;
+    }
+
+    /// @return uint256 The timestamp of the last raffle
+    function getLatestTimeStamp() public view returns (uint256) {
+        return s_lastTimeStamp;
+    }
+
+    /// @return uint256 The number of confirmations required for Chainlink VRF
+    function getRequestConfirmations() public pure returns (uint256) {
+        return REQUEST_CONFIRMATIONS;
     }
 }
