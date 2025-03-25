@@ -21,6 +21,11 @@ import "@chainlink/contracts/src/v0.8/automation/interfaces/KeeperCompatibleInte
 error Raffle__NotEnoughETHEntered();
 error Raffle__TransferFailed();
 error Raffle__NotOpen();
+error Raffle__UpkeepNotNeeded(
+    uint256 currentBalance,
+    uint256 numPlayers,
+    uint256 raffleState
+);
 
 /**
  * @title Raffle Contract
@@ -133,7 +138,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     function checkUpkeep(
         bytes calldata /* checkData */
     )
-        external
+        public
         view
         override
         returns (bool upkeepNeeded, bytes memory /* performData */)
@@ -142,6 +147,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         bool hasTimePassed = (block.timestamp - s_lastTimeStamp) > i_interval;
         bool hasPlayers = s_players.length >= 1;
         bool hasBalance = address(this).balance > 0;
+        upkeepNeeded = isOpen && hasTimePassed && hasPlayers && hasBalance;
     }
 
     /**
@@ -149,10 +155,17 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
      * @dev This function is not implemented yet
      * Will use Chainlink VRF for verifiable randomness
      */
-    function requestRandomWinner() external {
-        // Request the random number
-        // Once we get it, do something with it
-        // 2 transaction process
+    function performUpkeep(bytes calldata performData) external override {
+        // we don't need to pass performData, as it's not used in checkUpkeep
+        // this is only here to satisfy solidity compiler
+        (bool upkeepNeeded, ) = checkUpkeep(performData);
+        if (!upkeepNeeded) {
+            revert Raffle__UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
+        }
 
         // Lock the lottery
         s_raffleState = RaffleState.CALCULATING;
@@ -191,6 +204,8 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
 
         // reset players array
         s_players = new address payable[](0);
+        // reset the timestamp
+        s_lastTimeStamp = block.timestamp;
         // Reopen the lottery
         s_raffleState = RaffleState.OPEN;
 
