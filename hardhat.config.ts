@@ -9,6 +9,9 @@ const PRIVATE_KEY: string = process.env.PRIVATE_KEY!;
 const ETHERSCAN_API_KEY: string = process.env.ETHERSCAN_API_KEY!;
 
 const config: HardhatUserConfig = {
+  // default, you can change network on the go, by passing
+  // `--network hardhat` or `--network localhost` to hardhat run
+  defaultNetwork: "hardhat",
   networks: {
     sepolia: {
       url: SEPOLIA_RPC_URL, // Get from Alchemy or Infura
