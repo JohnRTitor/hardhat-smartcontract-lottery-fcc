@@ -15,11 +15,10 @@
   # Enables node and javascript support!
   languages.javascript = {
     enable = true;
+    # Corepack is wrapper for package managers such as yarn and npm
+    # I use yarn here
+    # `yarn set version berry` to upgrade to the latest version (4x)
     corepack.enable = true;
-    npm.enable = true;
-    # The package manager we will use
-    # Yarn is better than Npm in terms of efficiency and speed
-    yarn.enable = true;
   };
 
   # https://devenv.sh/processes/

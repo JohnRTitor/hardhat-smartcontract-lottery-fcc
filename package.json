@@ -38,5 +38,6 @@
     "test:staging": "yarn hardhat test --network sepolia",
     "lint": "yarn solhint 'contracts/*.sol'",
     "lint:fix": "yarn solhint 'contracts/*.sol' --fix"
-  }
+  },
+  "packageManager": "yarn@4.7.0"
 }
