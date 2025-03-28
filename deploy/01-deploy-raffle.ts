@@ -6,6 +6,7 @@ import {
   RAFFLE_INTERVAL,
 } from "../helper-hardhat-config";
 import { ethers } from "hardhat";
+import verify from "../utils/verify";
 import { Address, DeployFunction, Deployment } from "hardhat-deploy/dist/types";
 
 const VRF_SUB_FUND_AMOUNT = ethers.parseEther("30");
@@ -70,17 +71,31 @@ const deployRaffle: DeployFunction = async ({
   const gasLane: Address = networkConfig[chainId]["gasLane"]!;
   const callbackGasLimit: number = networkConfig[chainId]["callbackGasLimit"]!;
 
+  // the args we are passing to the contract's constructor
+  // it's better to pass them as strings
+  const args: string[] = [
+    vrfCoordinatorV2Address,
+    RAFFLE_ENTRANCE_FEE.toString(),
+    gasLane,
+    subscriptionId,
+    callbackGasLimit.toString(),
+    RAFFLE_INTERVAL.toString(),
+  ];
+
   const raffle = await deploy("Raffle", {
     from: deployer,
-    args: [
-      vrfCoordinatorV2Address,
-      RAFFLE_ENTRANCE_FEE,
-      gasLane,
-      subscriptionId,
-      callbackGasLimit,
-      RAFFLE_INTERVAL,
-    ],
+    args: args,
     log: true,
     waitConfirmations: networkConfig[chainId]["blockConfirmations"]!,
   });
+
+  // Verify the contract if and only if we are on a testnet and we have an API key
+  if (
+    !developmentChains.includes(network.name) &&
+    process.env.ETHERSCAN_API_KEY
+  ) {
+    await verify(raffle.address, args);
+  }
 };
+
+export default deployRaffle;
