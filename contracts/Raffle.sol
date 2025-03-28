@@ -228,4 +228,9 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     function getRequestConfirmations() public pure returns (uint256) {
         return REQUEST_CONFIRMATIONS;
     }
+
+    /// @return uint256 The interval between raffles, or intervals betweeen selection of winner
+    function getInterval() public view returns (uint256) {
+        return i_interval;
+    }
 }

@@ -120,3 +120,6 @@ const deployRaffle: DeployFunction = async ({
 };
 
 export default deployRaffle;
+// we add a tag such that it can be run independently
+// `hardhat deploy --tags raffle`
+deployRaffle.tags = ["all", "raffle"];
