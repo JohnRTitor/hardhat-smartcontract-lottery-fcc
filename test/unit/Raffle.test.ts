@@ -96,11 +96,24 @@ describe("Raffle", async () => {
       await network.provider.send("evm_mine", []);
 
       // Pretend to be a Chainlink keeper
+      // also send a empty calldata value by sending 0x
       await raffle.performUpkeep("0x");
 
       await expect(
         raffle.connect(player1).enterRaffle({ value: RAFFLE_ENTRANCE_FEE })
       ).to.be.revertedWithCustomError(raffle, "Raffle__NotOpen");
+    });
+  });
+
+  describe("checkUpkeep", async () => {
+    it("Returns false if people haven't sent any ETH", async () => {
+      // here we want to progress time artificially, but checkUpkeep should return false
+      // as nobody has sent any ETH to enter the raffle
+      await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
+      await network.provider.send("evm_mine", []);
+      // we do not want to send it as a transaction, so we static call it
+      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+      assert(!upkeepNeeded);
     });
   });
 });
