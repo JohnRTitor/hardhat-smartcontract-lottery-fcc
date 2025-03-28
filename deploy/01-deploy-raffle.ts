@@ -7,8 +7,16 @@ import {
 } from "../helper-hardhat-config";
 import { ethers } from "hardhat";
 import verify from "../utils/verify";
-import { Address, DeployFunction, Deployment } from "hardhat-deploy/dist/types";
+import {
+  Address,
+  DeployFunction,
+  Deployment,
+  DeployResult,
+} from "hardhat-deploy/dist/types";
+import { TypedEventLog } from "../typechain-types/common";
+import { EventLog } from "ethers";
 
+// amount of LINK we are gonna fund the subscription with
 const VRF_SUB_FUND_AMOUNT = ethers.parseEther("30");
 
 const deployRaffle: DeployFunction = async ({
@@ -28,8 +36,8 @@ const deployRaffle: DeployFunction = async ({
 
   let vrfCoordinatorV2Address: Address, subscriptionId: string;
 
+  // if we are on a development chain, we deploy mocks
   if (developmentChains.includes(network.name)) {
-    // if we are on a development chain, we deploy mocks
     const vrfCoordinatorV2MockDeployment: Deployment = await deployments.get(
       "VRFCoordinatorV2Mock"
     );
@@ -45,23 +53,33 @@ const deployRaffle: DeployFunction = async ({
     const tx = await vrfCoordinatorV2Mock.createSubscription();
     const txReceipt = await tx.wait(1);
 
+    // within the logs, find our SubscriptionCreated event
     const event = txReceipt!.logs.find(
-      (eachLog) => eachLog.address === vrfCoordinatorV2Mock.target
-    );
+      (eachLog) =>
+        eachLog.address === vrfCoordinatorV2Mock.target &&
+        (eachLog as EventLog).eventName === "SubscriptionCreated"
+    ) as EventLog;
+
     if (!event) {
       throw new Error("Subscription event not found!");
     }
 
-    // Decode the event using the correct ABI
-    subscriptionId = ethers.AbiCoder.defaultAbiCoder()
-      .decode(["uint64"], event.data)[0]
-      .toString();
+    // get the subscription Id from the event args, 0 = subscriptionId, 1 = msg.sender
+    // check the contract source code and log the log if you have doubts
+    subscriptionId = event.args[0].toString();
 
     log("Subscription created with ID:", subscriptionId);
+
     await vrfCoordinatorV2Mock.fundSubscription(
       subscriptionId,
-      VRF_SUB_FUND_AMOUNT
+      VRF_SUB_FUND_AMOUNT.toString()
     );
+    log(
+      `Subscription ${subscriptionId} funded with ${ethers.formatEther(
+        VRF_SUB_FUND_AMOUNT
+      )} LINK`
+    );
+    log("----------------------------------------------------");
   } else {
     vrfCoordinatorV2Address =
       networkConfig[chainId]["vrfCoordinatorV2Address"]!;
@@ -82,18 +100,21 @@ const deployRaffle: DeployFunction = async ({
     RAFFLE_INTERVAL.toString(),
   ];
 
-  const raffle = await deploy("Raffle", {
+  const raffle: DeployResult = await deploy("Raffle", {
     from: deployer,
     args: args,
     log: true,
     waitConfirmations: networkConfig[chainId]["blockConfirmations"]!,
   });
 
+  log("----------------------------------------------------");
+
   // Verify the contract if and only if we are on a testnet and we have an API key
   if (
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
+    log("Verifying...");
     await verify(raffle.address, args);
   }
 };

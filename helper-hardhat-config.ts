@@ -20,7 +20,7 @@ export const networkConfig: networkConfigInfo = {
     gasLane:
       "0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c",
     callbackGasLimit: 500000,
-    blockConfirmations: 2,
+    blockConfirmations: 1,
   },
   // https://docs.chain.link/vrf/v2/subscription/supported-networks#sepolia-testnet
   11155111: {
