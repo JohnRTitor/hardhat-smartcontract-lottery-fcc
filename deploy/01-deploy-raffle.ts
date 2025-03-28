@@ -107,6 +107,16 @@ const deployRaffle: DeployFunction = async ({
     waitConfirmations: networkConfig[chainId]["blockConfirmations"]!,
   });
 
+  // Further more, if we are on a development chain, we need to add the contract address to the subscription
+  if (developmentChains.includes(network.name)) {
+    const vrfCoordinatorV2Mock = await ethers.getContractAt(
+      "VRFCoordinatorV2Mock",
+      vrfCoordinatorV2Address
+    );
+    await vrfCoordinatorV2Mock.addConsumer(subscriptionId, raffle.address);
+    log(`Added consumer ${raffle.address} to subscription ${subscriptionId}`);
+  }
+
   log("----------------------------------------------------");
 
   // Verify the contract if and only if we are on a testnet and we have an API key

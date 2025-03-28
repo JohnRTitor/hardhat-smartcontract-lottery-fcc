@@ -82,5 +82,25 @@ describe("Raffle", async () => {
         "RaffleEnter"
       );
     });
+
+    it("Doesn't allow entrance when raffle is closed", async () => {
+      // GOAL: is to put the contract in critical section/calculating state
+
+      // enter the raffle
+      await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
+
+      // https://hardhat.org/hardhat-network/docs/reference#special-testing/debugging-methods
+      // allows us to progress the time artificially on the blockchain
+      await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
+      // mine a dummy new block
+      await network.provider.send("evm_mine", []);
+
+      // Pretend to be a Chainlink keeper
+      await raffle.performUpkeep("0x");
+
+      await expect(
+        raffle.connect(player1).enterRaffle({ value: RAFFLE_ENTRANCE_FEE })
+      ).to.be.revertedWithCustomError(raffle, "Raffle__NotOpen");
+    });
   });
 });
