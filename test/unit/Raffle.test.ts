@@ -16,7 +16,7 @@ if (!developmentChains.includes(network.name)) {
   describe.skip;
 }
 
-describe("Raffle", async () => {
+describe("Raffle", () => {
   let owner: Signer, player1: Signer;
   let raffle: Raffle, vrfCoordinatorV2Mock: VRFCoordinatorV2Mock;
 
@@ -42,7 +42,7 @@ describe("Raffle", async () => {
     );
   });
 
-  describe("constructor", async () => {
+  describe("constructor", () => {
     it("initializes the raffle correctly", async () => {
       // ideally we make our tests one assert per it
       const raffleState = await raffle.getRaffleState();
@@ -57,7 +57,7 @@ describe("Raffle", async () => {
     });
   });
 
-  describe("enterRaffle", async () => {
+  describe("enterRaffle", () => {
     it("Fails if we don't enter with enough ETH", async () => {
       await expect(
         raffle.connect(player1).enterRaffle({
@@ -105,7 +105,7 @@ describe("Raffle", async () => {
     });
   });
 
-  describe("checkUpkeep", async () => {
+  describe("checkUpkeep", () => {
     it("Returns false if people haven't sent any ETH", async () => {
       // here we want to progress time artificially, but checkUpkeep should return false
       // as nobody has sent any ETH to enter the raffle
