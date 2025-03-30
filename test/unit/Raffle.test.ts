@@ -3,13 +3,14 @@ import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert, expect } from "chai";
 import { ethers, network, deployments } from "hardhat";
 import { Raffle, VRFCoordinatorV2Mock } from "../../typechain-types";
-import { Signer } from "ethers";
+import { EventLog, Signer } from "ethers";
 import {
   developmentChains,
   networkConfig,
   RAFFLE_ENTRANCE_FEE,
   RAFFLE_INTERVAL,
 } from "../../helper-hardhat-config";
+import { Address } from "hardhat-deploy/dist/types";
 
 // only run on development chains like localhost or hardhat
 if (!developmentChains.includes(network.name)) {
@@ -19,6 +20,7 @@ if (!developmentChains.includes(network.name)) {
 describe("Raffle", () => {
   let owner: Signer, player1: Signer;
   let raffle: Raffle, vrfCoordinatorV2Mock: VRFCoordinatorV2Mock;
+  let raffleAddress: Address;
 
   const chainId = network.config.chainId!;
 
@@ -28,12 +30,9 @@ describe("Raffle", () => {
 
     await deployments.fixture(["all"]);
 
-    raffle = await ethers.getContractAt(
-      "Raffle",
-      (
-        await deployments.get("Raffle")
-      ).address
-    );
+    raffleAddress = (await deployments.get("Raffle")).address;
+
+    raffle = await ethers.getContractAt("Raffle", raffleAddress);
     vrfCoordinatorV2Mock = await ethers.getContractAt(
       "VRFCoordinatorV2Mock",
       (
@@ -151,6 +150,55 @@ describe("Raffle", () => {
 
       assert(raffleState.toString() === "0");
       assert(upkeepNeeded);
+    });
+  });
+
+  describe("performUpkeep", () => {
+    it("it can only run if checkUpkeep is true", async () => {
+      await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
+
+      // increase time + fund contract (already done) so checkUpkeep returns true
+      await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
+      await network.provider.send("evm_mine", []);
+
+      const tx = await raffle.performUpkeep("0x");
+      assert(tx);
+    });
+
+    it("reverts when checkUpkeep is false", async () => {
+      await expect(raffle.performUpkeep("0x")).to.be.revertedWithCustomError(
+        raffle,
+        "Raffle__UpkeepNotNeeded"
+      );
+    });
+
+    it("updates the raffle state, emits an event, calls the vrf coordinator", async () => {
+      await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
+
+      await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
+      await network.provider.send("evm_mine", []);
+
+      const tx = await raffle.performUpkeep("0x");
+      const txReceipt = await tx.wait(1);
+
+      const raffleAddress = await raffle.getAddress();
+
+      const event = txReceipt!.logs.find(
+        (eachLog) =>
+          eachLog.address === raffleAddress &&
+          (eachLog as EventLog).eventName === "RequestedRaffleWinner"
+      ) as EventLog;
+
+      if (!event) {
+        throw new Error("RequestedRaffleWinner event not found!");
+      }
+
+      // get the requestId from the emitted event
+      const requestId: string = event.args[0].toString();
+      const raffleState = await raffle.getRaffleState();
+
+      assert(Number.parseInt(requestId) > 0);
+      assert(raffleState.toString() == "1");
     });
   });
 });
