@@ -201,4 +201,27 @@ describe("Raffle", () => {
       assert(raffleState.toString() == "1");
     });
   });
+
+  describe("fulfillRandomWords", () => {
+    // before each have our deployer enter the lottery
+    // and increase the time so we can performUpkeep
+    beforeEach(async () => {
+      await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
+
+      await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
+      await network.provider.send("evm_mine", []);
+    });
+
+    it("can only be called after performUpkeep", async () => {
+      // we haven't even called performUpkeep, which calls this fulfillRandomWords
+      // function, so requestId if 0, is invalid, at the moment
+      await expect(
+        vrfCoordinatorV2Mock.fulfillRandomWords(0, raffleAddress)
+      ).to.be.revertedWith("nonexistent request");
+      // 1 as requestId is also invalid
+      await expect(
+        vrfCoordinatorV2Mock.fulfillRandomWords(0, raffleAddress)
+      ).to.be.revertedWith("nonexistent request");
+    });
+  });
 });
