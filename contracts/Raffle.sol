@@ -9,9 +9,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
-import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
-import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
-import "@chainlink/contracts/src/v0.8/automation/interfaces/KeeperCompatibleInterface.sol";
+import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import {KeeperCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/interfaces/KeeperCompatibleInterface.sol";
 
 /** @dev Error messages for revert statements */
 error Raffle__NotEnoughETHEntered();
@@ -64,7 +64,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     /* Lottery Variables */
     address private s_recentWinner;
     RaffleState private s_raffleState;
-    uint256 private s_lastTimeStamp;
+    uint256 private s_lastTimestamp;
     /// @notice Intervals at which a winner can be picked
     uint256 private immutable i_interval;
 
@@ -97,7 +97,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         i_callbackGasLimit = callbackGasLimit;
         s_raffleState = RaffleState.OPEN;
         // Set it to the current timestamp
-        s_lastTimeStamp = block.timestamp;
+        s_lastTimestamp = block.timestamp;
         i_interval = interval;
     }
 
@@ -133,7 +133,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         returns (bool upkeepNeeded, bytes memory /* performData */)
     {
         bool isOpen = s_raffleState == RaffleState.OPEN;
-        bool hasTimePassed = (block.timestamp - s_lastTimeStamp) > i_interval;
+        bool hasTimePassed = (block.timestamp - s_lastTimestamp) > i_interval;
         bool hasPlayers = s_players.length >= 1;
         bool hasBalance = address(this).balance > 0;
         upkeepNeeded = isOpen && hasTimePassed && hasPlayers && hasBalance;
@@ -180,7 +180,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         if (!success) revert Raffle__TransferFailed();
 
         s_players = new address payable[](0);
-        s_lastTimeStamp = block.timestamp;
+        s_lastTimestamp = block.timestamp;
         // Reopen the lottery
         s_raffleState = RaffleState.OPEN;
         emit WinnerPicked(recentWinner);
@@ -220,8 +220,8 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     }
 
     /// @return uint256 The timestamp of the last raffle
-    function getLatestTimeStamp() public view returns (uint256) {
-        return s_lastTimeStamp;
+    function getLatestTimestamp() public view returns (uint256) {
+        return s_lastTimestamp;
     }
 
     /// @return uint256 The number of confirmations required for Chainlink VRF

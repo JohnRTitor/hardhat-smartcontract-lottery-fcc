@@ -252,7 +252,7 @@ describe("Raffle Unit Tests", function () {
       }
 
       // record the initial timestamp
-      const startingTimeStamp = await raffle.getLatestTimeStamp();
+      const startingTimeStamp = await raffle.getLatestTimestamp();
 
       // we want to call performUpkeep (acting like a Chainlink Keeper)
       // it then calls fulfillRandomWords, acting as a Chainlink VRF
@@ -267,7 +267,7 @@ describe("Raffle Unit Tests", function () {
           try {
             const recentWinner = await raffle.getRecentWinner();
             const raffleState = await raffle.getRaffleState();
-            const endingTimeStamp = await raffle.getLatestTimeStamp();
+            const endingTimeStamp = await raffle.getLatestTimestamp();
             const numPlayers = await raffle.getNumberOfPlayers();
 
             const winnerBalanceBeforeWinning: bigint =
