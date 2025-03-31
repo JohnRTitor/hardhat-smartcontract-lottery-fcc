@@ -17,7 +17,7 @@ if (!developmentChains.includes(network.name)) {
   describe.skip;
 }
 
-describe("Raffle", () => {
+describe("Raffle", function () {
   let owner: Signer, player1: Signer;
   let raffle: Raffle, vrfCoordinatorV2Mock: VRFCoordinatorV2Mock;
   let raffleAddress: Address;
@@ -25,7 +25,7 @@ describe("Raffle", () => {
   const chainId = network.config.chainId!;
 
   // deploy raffle contract before each test
-  beforeEach(async () => {
+  beforeEach(async function () {
     [owner, player1] = await ethers.getSigners();
 
     await deployments.fixture(["all"]);
@@ -41,8 +41,8 @@ describe("Raffle", () => {
     );
   });
 
-  describe("constructor", () => {
-    it("initializes the raffle correctly", async () => {
+  describe("constructor", function () {
+    it("initializes the raffle correctly", async function () {
       // ideally we make our tests one assert per it
       const raffleState = await raffle.getRaffleState();
       const interval = await raffle.getInterval();
@@ -56,8 +56,8 @@ describe("Raffle", () => {
     });
   });
 
-  describe("enterRaffle", () => {
-    it("Fails if we don't enter with enough ETH", async () => {
+  describe("enterRaffle", function () {
+    it("Fails if we don't enter with enough ETH", async function () {
       await expect(
         raffle.connect(player1).enterRaffle({
           value: ethers.parseEther("0.001"),
@@ -65,7 +65,7 @@ describe("Raffle", () => {
       ).to.be.revertedWithCustomError(raffle, "Raffle__NotEnoughETHEntered");
     });
 
-    it("Updates the s_players array with the new player address", async () => {
+    it("Updates the s_players array with the new player address", async function () {
       await raffle.connect(player1).enterRaffle({
         value: RAFFLE_ENTRANCE_FEE,
       });
@@ -75,14 +75,14 @@ describe("Raffle", () => {
       assert.equal(playerFromContract, await player1.getAddress());
     });
 
-    it("Emits an event on successful entry", async () => {
+    it("Emits an event on successful entry", async function () {
       await expect(raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE })).to.emit(
         raffle,
         "RaffleEnter"
       );
     });
 
-    it("Doesn't allow entrance when raffle is closed", async () => {
+    it("Doesn't allow entrance when raffle is closed", async function () {
       // GOAL: is to put the contract in critical section/calculating state
 
       // enter the raffle
@@ -104,8 +104,8 @@ describe("Raffle", () => {
     });
   });
 
-  describe("checkUpkeep", () => {
-    it("Returns false if people haven't sent any ETH", async () => {
+  describe("checkUpkeep", function () {
+    it("Returns false if people haven't sent any ETH", async function () {
       // here we want to progress time artificially, but checkUpkeep should return false
       // as nobody has sent any ETH to enter the raffle
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
@@ -115,7 +115,7 @@ describe("Raffle", () => {
       assert(!upkeepNeeded);
     });
 
-    it("Returns false if Raffle isn't open", async () => {
+    it("Returns false if Raffle isn't open", async function () {
       await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
       await network.provider.send("evm_mine", []);
@@ -127,7 +127,7 @@ describe("Raffle", () => {
       assert(!upkeepNeeded);
     });
 
-    it("Returns false if enough time hasn't passed", async () => {
+    it("Returns false if enough time hasn't passed", async function () {
       await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
 
       // progress time by a few seconds less than the interval
@@ -138,7 +138,7 @@ describe("Raffle", () => {
       assert(!upkeepNeeded);
     });
 
-    it("Returns true if enough time has passed, has players, eth, and is open", async () => {
+    it("Returns true if enough time has passed, has players, eth, and is open", async function () {
       await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
       await raffle.connect(player1).enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
 
@@ -153,8 +153,8 @@ describe("Raffle", () => {
     });
   });
 
-  describe("performUpkeep", () => {
-    it("it can only run if checkUpkeep is true", async () => {
+  describe("performUpkeep", function () {
+    it("it can only run if checkUpkeep is true", async function () {
       await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
 
       // increase time + fund contract (already done) so checkUpkeep returns true
@@ -165,14 +165,14 @@ describe("Raffle", () => {
       assert(tx);
     });
 
-    it("reverts when checkUpkeep is false", async () => {
+    it("reverts when checkUpkeep is false", async function () {
       await expect(raffle.performUpkeep("0x")).to.be.revertedWithCustomError(
         raffle,
         "Raffle__UpkeepNotNeeded"
       );
     });
 
-    it("updates the raffle state, emits an event, calls the vrf coordinator", async () => {
+    it("updates the raffle state, emits an event, calls the vrf coordinator", async function () {
       await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
 
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
@@ -202,17 +202,17 @@ describe("Raffle", () => {
     });
   });
 
-  describe("fulfillRandomWords", () => {
+  describe("fulfillRandomWords", function () {
     // before each have our deployer enter the lottery
     // and increase the time so we can performUpkeep
-    beforeEach(async () => {
+    beforeEach(async function () {
       await raffle.enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
 
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
       await network.provider.send("evm_mine", []);
     });
 
-    it("can only be called after performUpkeep", async () => {
+    it("can only be called after performUpkeep", async function () {
       // we haven't even called performUpkeep, which calls this fulfillRandomWords
       // function, so requestId if 0, is invalid, at the moment
       await expect(
@@ -224,7 +224,7 @@ describe("Raffle", () => {
       ).to.be.revertedWith("nonexistent request");
     });
 
-    it("picks a winner, resets the lottery, and sends money", async () => {
+    it("picks a winner, resets the lottery, and sends money", async function () {
       // we want to have 3 additional people in the lottery
       // so, including the deployer we got 4
       const additionalEntrants = 3;
@@ -262,7 +262,7 @@ describe("Raffle", () => {
       // if we decide to do this on a testnet later
       await new Promise<void>(async (resolve, reject) => {
         // Event listener for WinnerPicked
-        raffle.once(raffle.filters.WinnerPicked, async () => {
+        raffle.once(raffle.filters.WinnerPicked, async function () {
           // we reach here if we found the event
           try {
             const recentWinner = await raffle.getRecentWinner();
