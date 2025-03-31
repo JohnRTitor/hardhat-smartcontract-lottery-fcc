@@ -223,5 +223,100 @@ describe("Raffle", () => {
         vrfCoordinatorV2Mock.fulfillRandomWords(0, raffleAddress)
       ).to.be.revertedWith("nonexistent request");
     });
+
+    it("picks a winner, resets the lottery, and sends money", async () => {
+      // we want to have 3 additional people in the lottery
+      // so, including the deployer we got 4
+      const additionalEntrants = 3;
+      const startingAccountIndex = 1;
+      const accounts: Signer[] = await ethers.getSigners();
+      // for recording the balance of all accounts after betting
+      let balanceAfterBetting: Record<string, bigint> = {};
+
+      // record the balance of deployer, we already entered at the top level describe
+      balanceAfterBetting[await accounts[0].getAddress()] =
+        await ethers.provider.getBalance(await accounts[0].getAddress());
+
+      for (
+        let i = startingAccountIndex;
+        i < startingAccountIndex + additionalEntrants;
+        i++
+      ) {
+        // enter the raffle as the new account
+        await raffle
+          .connect(accounts[i])
+          .enterRaffle({ value: RAFFLE_ENTRANCE_FEE });
+        // record balance after betting
+        balanceAfterBetting[await accounts[i].getAddress()] =
+          await ethers.provider.getBalance(await accounts[i].getAddress());
+      }
+
+      // record the initial timestamp
+      const startingTimeStamp = await raffle.getLatestTimeStamp();
+
+      // we want to call performUpkeep (acting like a Chainlink Keeper)
+      // it then calls fulfillRandomWords, acting as a Chainlink VRF
+      // We need to wait for fulfillRandomWords to be called by the VRF/us
+      // to be honest, since our hardhat node is fast, we don't need to wait
+      // for it at all, but it's a good practice to wait as we have to wait
+      // if we decide to do this on a testnet later
+      await new Promise<void>(async (resolve, reject) => {
+        // Event listener for WinnerPicked
+        raffle.once(raffle.filters.WinnerPicked, async () => {
+          // we reach here if we found the event
+          try {
+            const recentWinner = await raffle.getRecentWinner();
+            const raffleState = await raffle.getRaffleState();
+            const endingTimeStamp = await raffle.getLatestTimeStamp();
+            const numPlayers = await raffle.getNumberOfPlayers();
+
+            const winnerBalanceBeforeWinning: bigint =
+              balanceAfterBetting[recentWinner];
+            const winnerBalanceAfterWinning: bigint =
+              await ethers.provider.getBalance(recentWinner);
+
+            // once a winner is picked, the lottery is reset
+            assert.equal(numPlayers.toString(), "0"); // no players
+            assert.equal(raffleState.toString(), "0"); // open
+            assert(endingTimeStamp > startingTimeStamp); // timestamp updated
+
+            // check that the winner has the money of all players
+            assert.equal(
+              winnerBalanceBeforeWinning +
+                RAFFLE_ENTRANCE_FEE * BigInt(1 + additionalEntrants),
+              winnerBalanceAfterWinning
+            );
+          } catch (error) {
+            // if the event is not emiited or takes too long, we throw an error
+            reject(error);
+          }
+          // we got everything, finally resolve
+          resolve();
+        });
+
+        // Below we performUpkeep, which returns an event
+        // with our requestId
+        const tx = await raffle.performUpkeep("0x");
+        const txReceipt = await tx.wait(1);
+        const event = txReceipt!.logs.find(
+          (eachLog) =>
+            eachLog.address === raffleAddress &&
+            (eachLog as EventLog).eventName === "RequestedRaffleWinner"
+        ) as EventLog;
+
+        if (!event) {
+          throw new Error("RequestedRaffleWinner event not found!");
+        }
+
+        // we feed the requestId to fulfillRandomWords
+        // which emits the WinnerPicked event, once successful
+        await vrfCoordinatorV2Mock.fulfillRandomWords(
+          event.args[0],
+          raffleAddress
+        );
+        // once WinnerPicked event is fired, we go back to the
+        // event listener few lines above ^^
+      });
+    });
   });
 });
