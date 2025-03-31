@@ -12,17 +12,17 @@ import {
 } from "../../helper-hardhat-config";
 import { Address } from "hardhat-deploy/dist/types";
 
-// only run on development chains like localhost or hardhat
-if (!developmentChains.includes(network.name)) {
-  describe.skip;
-}
-
-describe("Raffle", function () {
+describe("Raffle Unit Tests", function () {
   let owner: Signer, player1: Signer;
   let raffle: Raffle, vrfCoordinatorV2Mock: VRFCoordinatorV2Mock;
   let raffleAddress: Address;
 
-  const chainId = network.config.chainId!;
+  before(function () {
+    // we want to run this only on development chains
+    if (!developmentChains.includes(network.name)) {
+      this.skip();
+    }
+  });
 
   // deploy raffle contract before each test
   beforeEach(async function () {

@@ -56,6 +56,9 @@ const config: HardhatUserConfig = {
     },
   },
   solidity: "0.8.28",
+  mocha: {
+    timeout: 200000, // 200 seconds max for running tests
+  },
 };
 
 export default config;
