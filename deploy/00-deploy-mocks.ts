@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 
 const BASE_FEE: bigint = ethers.parseEther("0.25"); // premium 0.25 LINK
 const GAS_PRICE_LINK: bigint = ethers.parseEther("0.000000001"); // 0.000000001 LINK per gas, calculated based on gas price
+const WEI_PER_UNIT_LINK = 6220544689828454;
 
 const deployMocks = async ({
   deployments,
@@ -18,11 +19,11 @@ const deployMocks = async ({
   }
 
   log("Local network detected! Deploying mocks....");
-  await deploy("VRFCoordinatorV2Mock", {
+  await deploy("VRFCoordinatorV2_5Mock", {
     from: deployer,
     log: true,
     // See constructor args from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol"
-    args: [BASE_FEE, GAS_PRICE_LINK],
+    args: [BASE_FEE, GAS_PRICE_LINK, WEI_PER_UNIT_LINK],
   });
 
   log("Mocks deployed!");

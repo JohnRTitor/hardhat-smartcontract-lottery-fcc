@@ -9,8 +9,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
-import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {KeeperCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/interfaces/KeeperCompatibleInterface.sol";
 
 /** @dev Error messages for revert statements */
@@ -23,7 +23,7 @@ error Raffle__UpkeepNotNeeded(
     uint256 raffleState
 );
 
-contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
+contract Raffle is VRFConsumerBaseV2Plus, KeeperCompatibleInterface {
     /// @notice Enum representing the state of the raffle
     enum RaffleState {
         OPEN,
@@ -33,10 +33,10 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     /* State Variables */
     uint256 private immutable i_entraceFee;
     address payable[] private s_players;
-    VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
 
     /**
      * @dev Determines the maximum gas price willing to be paid for a Chainlink VRF request
+     * https://docs.chain.link/docs/vrf/v2-5/supported-networks
      */
     bytes32 private immutable i_gasLane;
 
@@ -44,7 +44,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
      * @dev This ID links the contract to a funded subscription in Chainlink VRF
      * to pay for random number generation requests
      */
-    uint64 private immutable i_subscriptionId;
+    uint256 private immutable i_subscriptionId;
 
     /**
      * @dev Determines the maximum gas allowed for fulfillRandomWords to execute
@@ -86,11 +86,10 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         address vrfCoordinatorAddress,
         uint256 entranceFee,
         bytes32 gasLane,
-        uint64 subscriptionId,
+        uint256 subscriptionId,
         uint32 callbackGasLimit,
         uint256 interval
-    ) VRFConsumerBaseV2(vrfCoordinatorAddress) {
-        i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinatorAddress);
+    ) VRFConsumerBaseV2Plus(vrfCoordinatorAddress) {
         i_entraceFee = entranceFee;
         i_gasLane = gasLane;
         i_subscriptionId = subscriptionId;
@@ -142,6 +141,8 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     /**
      * @notice Requests a random winner selection when upkeep conditions are met
      * @dev Calls Chainlink VRF to generate a random number
+     * this is actually the requestRandomWords function but named performUpkeep
+     * so that it can be called by the Chainlink Keepers
      */
     function performUpkeep(bytes calldata /*performData*/) external override {
         (bool upkeepNeeded, ) = checkUpkeep("");
@@ -154,12 +155,17 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
 
         // Close the lottery
         s_raffleState = RaffleState.CALCULATING;
-        uint256 requestId = i_vrfCoordinator.requestRandomWords(
-            i_gasLane,
-            i_subscriptionId,
-            REQUEST_CONFIRMATIONS,
-            i_callbackGasLimit,
-            NUM_WORDS
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: i_gasLane,
+                subId: i_subscriptionId,
+                requestConfirmations: REQUEST_CONFIRMATIONS,
+                callbackGasLimit: i_callbackGasLimit,
+                numWords: NUM_WORDS,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
+                )
+            })
         );
         emit RequestedRaffleWinner(requestId);
     }
@@ -170,7 +176,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
      */
     function fulfillRandomWords(
         uint256 /* requestId */,
-        uint256[] memory randomWords
+        uint256[] calldata randomWords
     ) internal override {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable recentWinner = s_players[indexOfWinner];

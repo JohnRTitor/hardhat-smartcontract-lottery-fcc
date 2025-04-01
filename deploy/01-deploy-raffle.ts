@@ -17,7 +17,7 @@ import { TypedEventLog } from "../typechain-types/common";
 import { EventLog } from "ethers";
 
 // amount of LINK we are gonna fund the subscription with
-const VRF_SUB_FUND_AMOUNT = ethers.parseEther("30");
+const VRF_SUB_FUND_AMOUNT = ethers.parseEther("100");
 
 const deployRaffle: DeployFunction = async ({
   deployments,
@@ -34,29 +34,29 @@ const deployRaffle: DeployFunction = async ({
     );
   }
 
-  let vrfCoordinatorV2Address: Address, subscriptionId: string;
+  let vrfCoordinatorV2_5Address: Address, subscriptionId: string;
 
   // if we are on a development chain, we deploy mocks
   if (developmentChains.includes(network.name)) {
-    const vrfCoordinatorV2MockDeployment: Deployment = await deployments.get(
-      "VRFCoordinatorV2Mock"
+    const vrfCoordinatorV2_5MockDeployment: Deployment = await deployments.get(
+      "VRFCoordinatorV2_5Mock"
     );
-    vrfCoordinatorV2Address = vrfCoordinatorV2MockDeployment.address;
+    vrfCoordinatorV2_5Address = vrfCoordinatorV2_5MockDeployment.address;
 
     // get the contract so we can call its functions
-    const vrfCoordinatorV2Mock = await ethers.getContractAt(
-      "VRFCoordinatorV2Mock",
-      vrfCoordinatorV2Address
+    const vrfCoordinatorV2_5Mock = await ethers.getContractAt(
+      "VRFCoordinatorV2_5Mock",
+      vrfCoordinatorV2_5Address
     );
 
     // create a subscription
-    const tx = await vrfCoordinatorV2Mock.createSubscription();
+    const tx = await vrfCoordinatorV2_5Mock.createSubscription();
     const txReceipt = await tx.wait(1);
 
     // within the logs, find our SubscriptionCreated event
     const event = txReceipt!.logs.find(
       (eachLog) =>
-        eachLog.address === vrfCoordinatorV2Mock.target &&
+        eachLog.address === vrfCoordinatorV2_5Mock.target &&
         (eachLog as EventLog).eventName === "SubscriptionCreated"
     ) as EventLog;
 
@@ -70,7 +70,7 @@ const deployRaffle: DeployFunction = async ({
 
     log("Subscription created with ID:", subscriptionId);
 
-    await vrfCoordinatorV2Mock.fundSubscription(
+    await vrfCoordinatorV2_5Mock.fundSubscription(
       subscriptionId,
       VRF_SUB_FUND_AMOUNT.toString()
     );
@@ -81,7 +81,7 @@ const deployRaffle: DeployFunction = async ({
     );
     log("----------------------------------------------------");
   } else {
-    vrfCoordinatorV2Address =
+    vrfCoordinatorV2_5Address =
       networkConfig[chainId]["vrfCoordinatorV2Address"]!;
     subscriptionId = networkConfig[chainId]["subscriptionId"]!;
   }
@@ -92,7 +92,7 @@ const deployRaffle: DeployFunction = async ({
   // the args we are passing to the contract's constructor
   // it's better to pass them as strings
   const args: string[] = [
-    vrfCoordinatorV2Address,
+    vrfCoordinatorV2_5Address,
     RAFFLE_ENTRANCE_FEE.toString(),
     gasLane,
     subscriptionId,
@@ -109,11 +109,11 @@ const deployRaffle: DeployFunction = async ({
 
   // Further more, if we are on a development chain, we need to add the contract address to the subscription
   if (developmentChains.includes(network.name)) {
-    const vrfCoordinatorV2Mock = await ethers.getContractAt(
-      "VRFCoordinatorV2Mock",
-      vrfCoordinatorV2Address
+    const vrfCoordinatorV2_5Mock = await ethers.getContractAt(
+      "VRFCoordinatorV2_5Mock",
+      vrfCoordinatorV2_5Address
     );
-    await vrfCoordinatorV2Mock.addConsumer(subscriptionId, raffle.address);
+    await vrfCoordinatorV2_5Mock.addConsumer(subscriptionId, raffle.address);
     log(`Added consumer ${raffle.address} to subscription ${subscriptionId}`);
   }
 

@@ -2,7 +2,7 @@
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert, expect } from "chai";
 import { ethers, network, deployments } from "hardhat";
-import { Raffle, VRFCoordinatorV2Mock } from "../../typechain-types";
+import { Raffle, VRFCoordinatorV2_5Mock } from "../../typechain-types";
 import { EventLog, Signer } from "ethers";
 import {
   developmentChains,
@@ -14,7 +14,7 @@ import { Address } from "hardhat-deploy/dist/types";
 
 describe("Raffle Unit Tests", function () {
   let owner: Signer, player1: Signer;
-  let raffle: Raffle, vrfCoordinatorV2Mock: VRFCoordinatorV2Mock;
+  let raffle: Raffle, vrfCoordinatorV2_5Mock: VRFCoordinatorV2_5Mock;
   let raffleAddress: Address;
 
   before(function () {
@@ -33,10 +33,10 @@ describe("Raffle Unit Tests", function () {
     raffleAddress = (await deployments.get("Raffle")).address;
 
     raffle = await ethers.getContractAt("Raffle", raffleAddress);
-    vrfCoordinatorV2Mock = await ethers.getContractAt(
-      "VRFCoordinatorV2Mock",
+    vrfCoordinatorV2_5Mock = await ethers.getContractAt(
+      "VRFCoordinatorV2_5Mock",
       (
-        await deployments.get("VRFCoordinatorV2Mock")
+        await deployments.get("VRFCoordinatorV2_5Mock")
       ).address
     );
   });
@@ -216,12 +216,12 @@ describe("Raffle Unit Tests", function () {
       // we haven't even called performUpkeep, which calls this fulfillRandomWords
       // function, so requestId if 0, is invalid, at the moment
       await expect(
-        vrfCoordinatorV2Mock.fulfillRandomWords(0, raffleAddress)
-      ).to.be.revertedWith("nonexistent request");
-      // 1 as requestId is also invalid
+        vrfCoordinatorV2_5Mock.fulfillRandomWords(0, raffleAddress)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2_5Mock, "InvalidRequest");
+      // 3 as requestId is also invalid
       await expect(
-        vrfCoordinatorV2Mock.fulfillRandomWords(0, raffleAddress)
-      ).to.be.revertedWith("nonexistent request");
+        vrfCoordinatorV2_5Mock.fulfillRandomWords(3, raffleAddress)
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2_5Mock, "InvalidRequest");
     });
 
     it("picks a winner, resets the lottery, and sends money", async function () {
@@ -254,16 +254,19 @@ describe("Raffle Unit Tests", function () {
       // record the initial timestamp
       const startingTimeStamp = await raffle.getLatestTimestamp();
 
+      console.log("All entered!");
+
       // we want to call performUpkeep (acting like a Chainlink Keeper)
       // it then calls fulfillRandomWords, acting as a Chainlink VRF
       // We need to wait for fulfillRandomWords to be called by the VRF/us
       // to be honest, since our hardhat node is fast, we don't need to wait
       // for it at all, but it's a good practice to wait as we have to wait
       // if we decide to do this on a testnet later
-      await new Promise<void>(async (resolve, reject) => {
+      await new Promise<string>(async (resolve, reject) => {
         // Event listener for WinnerPicked
         raffle.once(raffle.filters.WinnerPicked, async function () {
           // we reach here if we found the event
+          console.log("WinnerPicked event emitted");
           try {
             const recentWinner = await raffle.getRecentWinner();
             const raffleState = await raffle.getRaffleState();
@@ -286,36 +289,48 @@ describe("Raffle Unit Tests", function () {
                 RAFFLE_ENTRANCE_FEE * BigInt(1 + additionalEntrants),
               winnerBalanceAfterWinning
             );
+
+            // we got everything, finally resolve
+            resolve("Winner picked successfully");
+            console.log("Winner picked successfully");
           } catch (error) {
             // if the event is not emiited or takes too long, we throw an error
             reject(error);
           }
-          // we got everything, finally resolve
-          resolve();
         });
 
-        // Below we performUpkeep, which returns an event
-        // with our requestId
-        const tx = await raffle.performUpkeep("0x");
-        const txReceipt = await tx.wait(1);
-        const event = txReceipt!.logs.find(
-          (eachLog) =>
-            eachLog.address === raffleAddress &&
-            (eachLog as EventLog).eventName === "RequestedRaffleWinner"
-        ) as EventLog;
+        try {
+          console.log("Searching for RequestedRaffleWinner event!");
+          // Below we performUpkeep, which returns an event
+          // with our requestId
+          const tx = await raffle.performUpkeep("0x");
+          const txReceipt = await tx.wait(1);
+          console.log("Transaction reciept recieved");
+          const event = txReceipt!.logs.find(
+            (eachLog) =>
+              eachLog.address === raffleAddress &&
+              (eachLog as EventLog).eventName === "RequestedRaffleWinner"
+          ) as EventLog;
 
-        if (!event) {
-          throw new Error("RequestedRaffleWinner event not found!");
+          if (!event) {
+            throw new Error("RequestedRaffleWinner event not found!");
+          }
+
+          console.log("Calling fulfillRandomWords...");
+
+          // we feed the requestId to fulfillRandomWords
+          // which emits the WinnerPicked event, once successful
+          const fulfiling = await vrfCoordinatorV2_5Mock.fulfillRandomWords(
+            event.args[0],
+            raffleAddress
+          );
+          await fulfiling.wait(1);
+          // once WinnerPicked event is fired, we go back to the
+          // event listener few lines above ^^
+          console.log("Fulfill random words called!");
+        } catch (error) {
+          reject(error);
         }
-
-        // we feed the requestId to fulfillRandomWords
-        // which emits the WinnerPicked event, once successful
-        await vrfCoordinatorV2Mock.fulfillRandomWords(
-          event.args[0],
-          raffleAddress
-        );
-        // once WinnerPicked event is fired, we go back to the
-        // event listener few lines above ^^
       });
     });
   });
