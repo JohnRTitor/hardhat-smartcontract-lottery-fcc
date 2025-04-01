@@ -40,8 +40,10 @@ export const networkConfig: networkConfigInfo = {
 
 // entrance fee to enter the lottery for each player, chosen by us
 // could vary by network, but lets charge the same fee for all networks
-export const RAFFLE_ENTRANCE_FEE = ethers.parseEther("0.1");
+export const RAFFLE_ENTRANCE_FEE: bigint = ethers.parseEther("0.1");
 // the time to wait before picking a winner
-export const RAFFLE_INTERVAL = 30;
+export const RAFFLE_INTERVAL: number = 30;
+// whether to pay in native tokens (ETH) or pay in LINK
+export const ENABLE_NATIVE_PAYMENT: boolean = false;
 
 export const developmentChains: string[] = ["hardhat", "localhost"];

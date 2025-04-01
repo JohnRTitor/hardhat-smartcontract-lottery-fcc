@@ -144,8 +144,9 @@ contract Raffle is VRFConsumerBaseV2Plus, KeeperCompatibleInterface {
      * this is actually the requestRandomWords function but named performUpkeep
      * so that it can be called by the Chainlink Keepers
      */
-    function performUpkeep(bytes calldata /*performData*/) external override {
+    function performUpkeep(bytes calldata performData) external override {
         (bool upkeepNeeded, ) = checkUpkeep("");
+        bool enableNativePayment = abi.decode(performData, (bool));
         if (!upkeepNeeded)
             revert Raffle__UpkeepNotNeeded(
                 address(this).balance,
@@ -163,7 +164,9 @@ contract Raffle is VRFConsumerBaseV2Plus, KeeperCompatibleInterface {
                 callbackGasLimit: i_callbackGasLimit,
                 numWords: NUM_WORDS,
                 extraArgs: VRFV2PlusClient._argsToBytes(
-                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
+                    VRFV2PlusClient.ExtraArgsV1({
+                        nativePayment: enableNativePayment
+                    })
                 )
             })
         );

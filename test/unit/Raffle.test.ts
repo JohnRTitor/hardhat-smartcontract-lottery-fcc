@@ -6,6 +6,7 @@ import { Raffle, VRFCoordinatorV2_5Mock } from "../../typechain-types";
 import { EventLog, Signer } from "ethers";
 import {
   developmentChains,
+  ENABLE_NATIVE_PAYMENT,
   networkConfig,
   RAFFLE_ENTRANCE_FEE,
   RAFFLE_INTERVAL,
@@ -16,6 +17,11 @@ describe("Raffle Unit Tests", function () {
   let owner: Signer, player1: Signer;
   let raffle: Raffle, vrfCoordinatorV2_5Mock: VRFCoordinatorV2_5Mock;
   let raffleAddress: Address;
+
+  const calldataArg: string = new ethers.AbiCoder().encode(
+    ["bool"],
+    [ENABLE_NATIVE_PAYMENT]
+  );
 
   before(function () {
     // we want to run this only on development chains
@@ -96,7 +102,7 @@ describe("Raffle Unit Tests", function () {
 
       // Pretend to be a Chainlink keeper
       // also send a empty calldata value by sending 0x
-      await raffle.performUpkeep("0x");
+      await raffle.performUpkeep(calldataArg);
 
       await expect(
         raffle.connect(player1).enterRaffle({ value: RAFFLE_ENTRANCE_FEE })
@@ -111,7 +117,7 @@ describe("Raffle Unit Tests", function () {
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
       await network.provider.send("evm_mine", []);
       // we do not want to send it as a transaction, so we static call it
-      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall(calldataArg);
       assert(!upkeepNeeded);
     });
 
@@ -120,9 +126,9 @@ describe("Raffle Unit Tests", function () {
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
       await network.provider.send("evm_mine", []);
 
-      await raffle.performUpkeep("0x");
+      await raffle.performUpkeep(calldataArg);
       const raffleState = await raffle.getRaffleState();
-      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall(calldataArg);
       assert(raffleState.toString() === "1");
       assert(!upkeepNeeded);
     });
@@ -134,7 +140,7 @@ describe("Raffle Unit Tests", function () {
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL - 3]);
       await network.provider.send("evm_mine", []);
 
-      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall(calldataArg);
       assert(!upkeepNeeded);
     });
 
@@ -146,7 +152,7 @@ describe("Raffle Unit Tests", function () {
       await network.provider.send("evm_mine", []);
 
       const raffleState = await raffle.getRaffleState();
-      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+      const { upkeepNeeded } = await raffle.checkUpkeep.staticCall(calldataArg);
 
       assert(raffleState.toString() === "0");
       assert(upkeepNeeded);
@@ -161,15 +167,14 @@ describe("Raffle Unit Tests", function () {
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
       await network.provider.send("evm_mine", []);
 
-      const tx = await raffle.performUpkeep("0x");
+      const tx = await raffle.performUpkeep(calldataArg);
       assert(tx);
     });
 
     it("reverts when checkUpkeep is false", async function () {
-      await expect(raffle.performUpkeep("0x")).to.be.revertedWithCustomError(
-        raffle,
-        "Raffle__UpkeepNotNeeded"
-      );
+      await expect(
+        raffle.performUpkeep(calldataArg)
+      ).to.be.revertedWithCustomError(raffle, "Raffle__UpkeepNotNeeded");
     });
 
     it("updates the raffle state, emits an event, calls the vrf coordinator", async function () {
@@ -178,7 +183,7 @@ describe("Raffle Unit Tests", function () {
       await network.provider.send("evm_increaseTime", [RAFFLE_INTERVAL + 1]);
       await network.provider.send("evm_mine", []);
 
-      const tx = await raffle.performUpkeep("0x");
+      const tx = await raffle.performUpkeep(calldataArg);
       const txReceipt = await tx.wait(1);
 
       const raffleAddress = await raffle.getAddress();
@@ -254,8 +259,6 @@ describe("Raffle Unit Tests", function () {
       // record the initial timestamp
       const startingTimeStamp = await raffle.getLatestTimestamp();
 
-      console.log("All entered!");
-
       // we want to call performUpkeep (acting like a Chainlink Keeper)
       // it then calls fulfillRandomWords, acting as a Chainlink VRF
       // We need to wait for fulfillRandomWords to be called by the VRF/us
@@ -266,7 +269,7 @@ describe("Raffle Unit Tests", function () {
         // Event listener for WinnerPicked
         raffle.once(raffle.filters.WinnerPicked, async function () {
           // we reach here if we found the event
-          console.log("WinnerPicked event emitted");
+          // console.log("WinnerPicked event emitted");
           try {
             const recentWinner = await raffle.getRecentWinner();
             const raffleState = await raffle.getRaffleState();
@@ -292,7 +295,7 @@ describe("Raffle Unit Tests", function () {
 
             // we got everything, finally resolve
             resolve("Winner picked successfully");
-            console.log("Winner picked successfully");
+            // console.log("Winner picked successfully");
           } catch (error) {
             // if the event is not emiited or takes too long, we throw an error
             reject(error);
@@ -300,12 +303,11 @@ describe("Raffle Unit Tests", function () {
         });
 
         try {
-          console.log("Searching for RequestedRaffleWinner event!");
+          // console.log("Searching for RequestedRaffleWinner event!");
           // Below we performUpkeep, which returns an event
           // with our requestId
-          const tx = await raffle.performUpkeep("0x");
+          const tx = await raffle.performUpkeep(calldataArg);
           const txReceipt = await tx.wait(1);
-          console.log("Transaction reciept recieved");
           const event = txReceipt!.logs.find(
             (eachLog) =>
               eachLog.address === raffleAddress &&
@@ -316,7 +318,7 @@ describe("Raffle Unit Tests", function () {
             throw new Error("RequestedRaffleWinner event not found!");
           }
 
-          console.log("Calling fulfillRandomWords...");
+          // console.log("Calling fulfillRandomWords...");
 
           // we feed the requestId to fulfillRandomWords
           // which emits the WinnerPicked event, once successful
@@ -327,7 +329,7 @@ describe("Raffle Unit Tests", function () {
           await fulfiling.wait(1);
           // once WinnerPicked event is fired, we go back to the
           // event listener few lines above ^^
-          console.log("Fulfill random words called!");
+          // console.log("Fulfilled random words!");
         } catch (error) {
           reject(error);
         }
