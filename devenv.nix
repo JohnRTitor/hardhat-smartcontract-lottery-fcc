@@ -17,7 +17,7 @@
     enable = true;
     # Corepack is wrapper for package managers such as yarn and npm
     # I use yarn here
-    # `yarn set version berry` to upgrade to the latest version (4x)
+    # `yarn set version stable` to upgrade to the latest version (4x)
     corepack.enable = true;
   };
 
